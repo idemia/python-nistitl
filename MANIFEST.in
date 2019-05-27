@@ -1,0 +1,4 @@
+include docs/*
+include tests/*
+include nistitl.py
+include README.rst
