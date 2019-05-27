@@ -2,8 +2,8 @@
 nistitl
 =======
 
-.. image:: https://readthedocs.org/projects/python-nistitl/badge/?version=master
-   :target: https://readthedocs.org/python-nistitl
+.. image:: https://readthedocs.org/projects/nistitl/badge/?version=latest
+   :target: https://nistitl.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
 .. image:: https://travis-ci.org/idemia/python-nistitl.svg?branch=master
@@ -32,3 +32,7 @@ Installation
 
    pip install -U nistitl
 
+Documentation
+=============
+
+See `the documentation <http://nistitl.readthedocs.io/>`_.
