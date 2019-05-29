@@ -6,9 +6,6 @@ nistitl
 This module defines classes used to parse and generate
 `NIST-ITL <http://dx.doi.org/10.6028/NIST.SP.500-290e3>`_ binary files.
 
-:copyright: Copyright 2019 by IDEMIA, see AUTHORS.
-:license: CeCILL-C, see LICENSE for details.
-
 The creation of a NIST file is done first with the creation of a message:
 
 >>> msg = Message()

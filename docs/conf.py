@@ -1,8 +1,10 @@
 
+import nistitl
+
 project = 'nistitl'
-copyright = 'IDEMIA'
-version = '0.1'
-release = '0.1'
+copyright = nistitl.__copyright__
+version = nistitl.__version__
+release = nistitl.__version__
 
 master_doc = 'index'
 
