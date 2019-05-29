@@ -109,6 +109,11 @@ import uuid
 import struct
 import warnings
 
+__version__ = '0.1'
+__author__ = "Olivier Heurtier"
+__copyright__ = "IDEMIA"
+__license__ = "CeCILL-C"
+
 re_tag_len = re.compile(b'(?P<record>\\d+)\\.(?P<tag>\\d+)\\:(?P<value>\\d+)')
 re_tag_begin = re.compile(r'(?P<record>\d+)\.(?P<tag>\d+)\:')
 re_tag_content = re.compile(b'(?P<tag>\\d+\\.\\d+\\:)(?P<content>.*)')
