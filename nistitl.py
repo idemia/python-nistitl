@@ -12,14 +12,14 @@ The creation of a NIST file is done first with the creation of a message:
 
 The message automatically contains a type 1 record. It can be accessed using
 direct accessors. For instance:
-    
+
 >>> msg.TOT = 'TOTFORTEST'
 >>> print(msg.TOT)
 TOTFORTEST
 
 Note that some fields can be accessed only in read-only mode:
-    
->>> print(msg.CNT.NIST==b'1.003:1\\x1f0')
+
+>>> print(msg.CNT.NIST == b'1.003:1\\x1f0')
 True
 >>> msg.CNT = 12 #doctest: +IGNORE_EXCEPTION_DETAIL
 Traceback (most recent call last):
@@ -27,7 +27,7 @@ Traceback (most recent call last):
 AttributeError: can't set attribute
 
 Record are created and then added to the message:
-    
+
 >>> r2 = AsciiRecord(2)
 >>> r2.IDC = 1
 >>> msg += r2
@@ -36,11 +36,11 @@ Many fields (as per the NIST-ITL specifications) are declared automatically.
 Other fields are created individually by specifying the record type, the field
 number, a value, a type and a format.
 
->>> f12 = Field(2,12,'TEST12',alias='f12')
+>>> f12 = Field(2, 12, 'TEST12', alias='f12')
 >>> f12.add_subfields( SubField('TEST12-SF1') )
 >>> f12.add_subfields( SubField('TEST12-SF2') )
 >>> r2 = r2 + f12
->>> print(f12.NIST==b'2.012:TEST12-SF1\\x1eTEST12-SF2')
+>>> print(f12.NIST == b'2.012:TEST12-SF1\\x1eTEST12-SF2')
 True
 
 The alias can be used to access the field in the record. This makes the code easier to read.
@@ -49,7 +49,7 @@ The alias can be used to access the field in the record. This makes the code eas
 ['TEST12-SF1', 'TEST12-SF2']
 
 Adding sub fields has deleted the value of the field itself:
-    
+
 >>> print(r2['f12']._value)
 <BLANKLINE>
 
@@ -60,46 +60,45 @@ Or to change a value
 
 And then the full message can be generated
 
->>> print(msg.NIST==b'1.001:123\\x1d1.002:0400\\x1d1.003:1\\x1f1\\x1e2\\x1f1\\x1d1.004:TOTFORTEST\\x1d1.005:20090924\\x1d1.007:000\\x1d1.008:000\\x1d1.009:12345\\x1d1.011:00.00\\x1d1.012:00.00\\x1c2.001:45\\x1d2.002:1\\x1d2.012:TEST12-SF1\\x1eTEST12-SF2\\x1c')
+>>> print(msg.NIST == b'1.001:123\\x1d1.002:0400\\x1d1.003:1\\x1f1\\x1e2\\x1f1\\x1d1.004:TOTFORTEST\\x1d1.005:20090924\\x1d1.007:000\\x1d1.008:000\\x1d1.009:12345\\x1d1.011:00.00\\x1d1.012:00.00\\x1c2.001:45\\x1d2.002:1\\x1d2.012:TEST12-SF1\\x1eTEST12-SF2\\x1c')
 True
 
 Two records of the same type can be created in the message.
 Record are created and then added to the message:
-    
+
 >>> r2 = AsciiRecord(2)
 >>> r2.IDC = 2
 >>> msg += r2
->>> f12 = Field(2,12,'TEST12',alias='f12')
+>>> f12 = Field(2, 12, 'TEST12', alias='f12')
 >>> r2 += f12
 >>> s =msg.NIST
->>> print(s==b'1.001:127\\x1d1.002:0400\\x1d1.003:1\\x1f2\\x1e2\\x1f1\\x1e2\\x1f2\\x1d1.004:TOTFORTEST\\x1d1.005:20090924\\x1d1.007:000\\x1d1.008:000\\x1d1.009:12345\\x1d1.011:00.00\\x1d1.012:00.00\\x1c2.001:45\\x1d2.002:1\\x1d2.012:TEST12-SF1\\x1eTEST12-SF2\\x1c2.001:30\\x1d2.002:2\\x1d2.012:TEST12\\x1c')
+>>> print(s == b'1.001:127\\x1d1.002:0400\\x1d1.003:1\\x1f2\\x1e2\\x1f1\\x1e2\\x1f2\\x1d1.004:TOTFORTEST\\x1d1.005:20090924\\x1d1.007:000\\x1d1.008:000\\x1d1.009:12345\\x1d1.011:00.00\\x1d1.012:00.00\\x1c2.001:45\\x1d2.002:1\\x1d2.012:TEST12-SF1\\x1eTEST12-SF2\\x1c2.001:30\\x1d2.002:2\\x1d2.012:TEST12\\x1c')
 True
 
 A NIST  buffer can be parsed easily with:
-    
+
 >>> msg = Message()
 >>> msg.parse(s)
 >>> f12 = msg[(2,'1')][12]
->>> print(f12.NIST==b'2.012:TEST12-SF1\\x1eTEST12-SF2')
+>>> print(f12.NIST == b'2.012:TEST12-SF1\\x1eTEST12-SF2')
 True
 >>> print(f12[0].value)
 TEST12-SF1
 >>> print(f12[1].value)
 TEST12-SF2
 >>> f12 = msg[(2,'2')][12]
->>> print(f12.NIST==b'2.012:TEST12')
+>>> print(f12.NIST == b'2.012:TEST12')
 True
 
 Record can be directy accessed through their position (index) in the full message:
-    
->>> print(msg[0]['CNT'][0].values==['1', '2'])
+
+>>> print(msg[0]['CNT'][0].values == ['1', '2'])
 True
->>> print(msg[0]['CNT'][1].values==['2', '1'])
+>>> print(msg[0]['CNT'][1].values == ['2', '1'])
 True
 
-""" 
+"""
 
-import sys
 import datetime
 import re
 import uuid
@@ -131,39 +130,39 @@ class ParsingException(Exception):
     # XXX add data about the error
     pass
 
-def parse_record(buffer,pRecord,pField,pSubField,pValue):
+def parse_record(buffer, pRecord, pField, pSubField, pValue):
     """
     Parse a single "text" record
     """
-    if buffer and buffer[-1]==28:
+    if buffer and buffer[-1] == 28:
         buffer = buffer[:-1]
-    for rec in re.split(FS,buffer):
+    for rec in re.split(FS, buffer):
         if not rec:
             break
-        
-        for field in re.split(GS,rec):
+
+        for field in re.split(GS, rec):
             mo = re_tag_content.match(field)
             if not mo:
                 raise ParsingException()
             sfs = mo.group('content').split(RS)
             for sf in sfs:
                 items = sf.split(US)
-                if len(items)==1 and len(sfs)==1:
-                    pField(mo.group('tag').decode('latin-1'),items[0])
+                if len(items) == 1 and len(sfs) == 1:
+                    pField(mo.group('tag').decode('latin-1'), items[0])
                     break
-                if len(items)!=1:
+                if len(items) != 1:
                     for i in items:
                         pValue(i)
                     pSubField(None)
                 else:
                     pSubField(items[0])
-            if len(sfs)!=1 or len(items)!=1:
-                pField(mo.group('tag').decode('latin-1'),None)
+            if len(sfs) != 1 or len(items) != 1:
+                pField(mo.group('tag').decode('latin-1'), None)
         pRecord()
 
 #_______________________________________________________________________________
 class _Parser(object):
-    def __init__(self,record):
+    def __init__(self, record):
         self._record = record
         self._subfields = []
         self._values = []
@@ -173,22 +172,22 @@ class _Parser(object):
         # we parse a single record, no action here
         # (flag the event and use it to detect syntax error)
         self.closed = True
-    def pField(self,tag,value):
+    def pField(self, tag, value):
         mo = re_tag_begin.match(tag)
         if not mo:
             raise NistException("Illegal tag name %s" % tag)
         record = int(mo.group('record'))
-        if record!=self._record.type:
+        if record != self._record.type:
             raise NistException("Illegal record number in tag name %s" % tag)
         tag = int(mo.group('tag'))
         f = self._record[tag]
         if not f:
-            f = Field(self._record.type,tag)
+            f = Field(self._record.type, tag)
             self._record += f
         f.reset()
         if value:
             # IDC are numeric by the specs
-            if (record!=1 and tag==2) or (tag==1):
+            if (record != 1 and tag == 2) or (tag == 1):
                 f.value = int(value.decode(self.encoding))
             else:
                 f.value = value.decode(self.encoding)
@@ -196,7 +195,7 @@ class _Parser(object):
             f.add_subfields(*self._subfields)
         self._subfields = []
         self._values = []
-    def pSubField(self,value):
+    def pSubField(self, value):
         if value:
             sf = SubField(value.decode(self.encoding))
         else:
@@ -204,10 +203,10 @@ class _Parser(object):
             sf.add_values(*self._values)
         self._subfields.append(sf)
         self._values = []
-    def pValue(self,value):
+    def pValue(self, value):
         self._values.append(value.decode(self.encoding))
 
-    
+
 #_______________________________________________________________________________
 class Message(object):
     """
@@ -215,24 +214,24 @@ class Message(object):
     NIST file as well as for building a new one.
     """
     __slots__ = ['_records']
-    
+
     def __init__(self):
         self.reset()
-    
-    def reset(self,autocreate=True):
+
+    def reset(self, autocreate=True):
         """
         Reset the record list, leaving only a blank new type-1 record.
         if *autocreate* is True, the type-1 record is initialized.
         """
         # Create type-1 record
-        r1 = AsciiRecord(1,autocreate)
+        r1 = AsciiRecord(1, autocreate)
         self._records = [r1]
-        
+
     #
     # Add records to the message
     #
 
-    def __add__(self,record):
+    def __add__(self, record):
         """
         Add a *record* to the list of records of the message.
         Example:
@@ -244,12 +243,12 @@ class Message(object):
         2
         """
         # check the record
-        if record.type==1 and len(self._records):
+        if record.type == 1 and len(self._records):
             raise NistException("Cannot add a type 1 record: it must be the first record")
         self._records.append(record)
         return self
 
-    def __iadd__(self,record):
+    def __iadd__(self, record):
         """
         Add a *record* to the list of records of the message.
         Example:
@@ -281,7 +280,7 @@ class Message(object):
         """
         return self._records.__iter__()
 
-    def iter(self,type):
+    def iter(self, type):
         """
         Return an iterator on all the records of type *type*.
 
@@ -294,14 +293,14 @@ class Message(object):
         """
         ret = []
         for r in self._records:
-            if r.type==type:
+            if r.type == type:
                 ret.append(r)
         return ret.__iter__()
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         """
         Return the record identified by *key*. *key* can be:
-            
+
         - a tuple or list with two integers: the record type and the record IDC
         - a single numeric value: the index in the list of records.
 
@@ -316,7 +315,7 @@ class Message(object):
 
         Access the first type 2 record with IDC = 0:
 
-        >>> print(msg[(2,0)].type)
+        >>> print(msg[(2, 0)].type)
         2
 
         Since type 1 has no IDC, it can only be accessed with an index of 0
@@ -331,16 +330,16 @@ class Message(object):
         ...
         IndexError: list index out of range
 
-        >>> msg[(2,100)]
+        >>> msg[(2, 100)]
         Traceback (most recent call last):
         ...
         IndexError: list index out of range
 
         """
-        if (type(key)==type([]) or type(key)==type(())) and len(key)==2:
+        if (type(key) == type([]) or type(key) == type(())) and len(key) == 2:
             # Find the record for the type and IDC
             for r in self._records:
-                if r.type==key[0] and int(r.IDC)==int(key[1]):
+                if r.type == key[0] and int(r.IDC) == int(key[1]):
                     return r
             raise IndexError('list index out of range')
         return self._records[key]
@@ -348,7 +347,7 @@ class Message(object):
     def __len__(self):
         """
         Return the number of records in the message.
-            
+
         >>> msg = Message()
         >>> print(len(msg))
         1
@@ -359,11 +358,11 @@ class Message(object):
     # Remove records from the message
     #
 
-    def __delitem__(self,key):
+    def __delitem__(self, key):
         """
         Delete a record. *key* can be:
-            
-        - a tuple or list containing type record type (a numeric) and the record 
+
+        - a tuple or list containing type record type (a numeric) and the record
           IDC (a numeric)
         - a single numeric value: the index in the list of records.
 
@@ -380,7 +379,7 @@ class Message(object):
         Access the first type 2 record with IDC = 0:
 
         >>> msg = msg + r
-        >>> del msg[(2,0)]
+        >>> del msg[(2, 0)]
         >>> len(msg)
         1
 
@@ -388,7 +387,7 @@ class Message(object):
         if you have a need for this):
 
         >>> msg = msg + r
-        >>> del msg[(1,0)]
+        >>> del msg[(1, 0)]
         Traceback (most recent call last):
         ...
         nistitl.NistException: Cannot delete the type 1 record
@@ -399,19 +398,19 @@ class Message(object):
         nistitl.NistException: Cannot delete the type 1 record
 
         """
-        if (type(key)==type([]) or type(key)==type(())) and len(key)==2:
-            if key[0]==1:
+        if (type(key) == type([]) or type(key) == type(())) and len(key) == 2:
+            if key[0] == 1:
                 raise NistException("Cannot delete the type 1 record")
             # Find the record for the type and IDC
             for r in self._records:
-                if r.type==key[0] and int(r.IDC)==int(key[1]):
+                if r.type == key[0] and int(r.IDC) == int(key[1]):
                     self._records.remove(r)
                     return
-        if key==0:
+        if key == 0:
             raise NistException("Cannot delete the type 1 record")
         del self._records[key]
-        
-    def __sub__(self,record):
+
+    def __sub__(self, record):
         """
         Remove one specific record from the message.
 
@@ -435,7 +434,7 @@ class Message(object):
                 return self
         raise NistException("Cannot remove a record: record not found")
 
-    def __isub__(self,record):
+    def __isub__(self, record):
         """
         Remove one specific record from the message.
 
@@ -463,10 +462,10 @@ class Message(object):
     # Direct access to the TOT of the NIST (shortcut).
     def get_TOT(self):
         return self._records[0].TOT
-    def set_TOT(self,v):
+    def set_TOT(self, v):
         self._records[0].TOT = v
-    TOT = property(get_TOT,set_TOT)
-    
+    TOT = property(get_TOT, set_TOT)
+
     # Access to the (calculated) CNT
     @property
     def CNT(self):
@@ -490,11 +489,11 @@ class Message(object):
         f.reset()
         sf = SubField()
         f.add_subfields(sf)
-        sf.add_values( 1,len(self._records)-1 )
+        sf.add_values(1, len(self._records)-1)
         for r in self._records[1:]:
             sf = SubField()
             f.add_subfields(sf)
-            sf.add_values( r.type,r.IDC )
+            sf.add_values(r.type, r.IDC)
         return f
 
     def __str__(self):
@@ -526,7 +525,7 @@ class Message(object):
         """
         cnt = self.CNT
         return '\n'.join([str(r) for r in self._records])
-    
+
     #
     # Conversion and parsing
     #
@@ -549,14 +548,14 @@ class Message(object):
         cnt = self.CNT
         return b''.join([r.NIST for r in self._records]+[b''])
 
-    def _factory(self,record,autocreate):
-        if record in [3,5,6]:
-            warnings.warn("Record of type %s" % record, DeprecationWarning,2)
-        if record in [3,4,5,6,7,8]:
-            return BinaryRecord(record,autocreate=autocreate)
-        return AsciiRecord(record,autocreate=autocreate)
-    
-    def parse(self,buffer):
+    def _factory(self, record, autocreate):
+        if record in [3, 5, 6]:
+            warnings.warn("Record of type %s" % record, DeprecationWarning, 2)
+        if record in [3, 4, 5, 6, 7, 8]:
+            return BinaryRecord(record, autocreate=autocreate)
+        return AsciiRecord(record, autocreate=autocreate)
+
+    def parse(self, buffer):
         """
         Parse a NIST buffer and initialize the list of records corresponding to
         the content.
@@ -578,17 +577,17 @@ class Message(object):
         """
         self.reset(autocreate=False)
         offset = 0
-        while offset+4<len(buffer):
+        while offset+4 < len(buffer):
             mo = re_tag_len.match(buffer[offset:])
             if mo:
                 record = int(mo.group('record'))
                 tag = int(mo.group('tag'))
                 length = int(mo.group('value'))
-                
+
                 # Get tag for DATA field
                 tag_for_data = None
-                for K,V in ALIASES[record].items():
-                    if V=='DATA':
+                for K, V in ALIASES[record].items():
+                    if V == 'DATA':
                         tag_for_data = K
                         break
                 record_buffer = buffer[offset:offset+length]
@@ -597,73 +596,73 @@ class Message(object):
                 else:
                     pos = -1
                 pos_end = 0
-                if pos>0:
-                    pos_end = record_buffer.rfind(GS,0,pos)
-                
-                if pos>0 and pos_end!=pos:
+                if pos > 0:
+                    pos_end = record_buffer.rfind(GS, 0, pos)
+
+                if pos > 0 and pos_end != pos:
                     # ascii record with binary data (type 10 for instance)
                     # parse only the beginning of the record
-                    
+
                     # check we still are pointing to a valid binary tag name
                     if not re_tag_begin.match(record_buffer[pos_end+1:pos+4].decode('latin-1')):
-                        raise NistException("Illegal format for tag %s (%s)" % (tag_for_data,record_buffer[pos_end+1:pos+4].decode('latin-1')))
-                    
+                        raise NistException("Illegal format for tag %s (%s)" % (tag_for_data, record_buffer[pos_end+1:pos+4].decode('latin-1')))
+
                     # parse the first part of the buffer (replace GS with FS)
                     text_buffer = record_buffer[:pos_end]+FS
-                    nr = self._factory(record,False)
+                    nr = self._factory(record, False)
                     self += nr
                     p = _Parser(nr)
-                    parse_record(text_buffer,p.pRecord,p.pField,p.pSubField,p.pValue)
+                    parse_record(text_buffer, p.pRecord, p.pField, p.pSubField, p.pValue)
                     if not p.closed:
                         raise NistException("Record type %d not terminated"%record)
-                    
+
                     # Add the binary part
-                    f = BinaryField(record,tag_for_data)
+                    f = BinaryField(record, tag_for_data)
                     f.value = record_buffer[pos+4:-1]
                     nr += f
                 else:
                     # pure ascii record, no binary tag
                     # parse the record
-                    if record==1:
+                    if record == 1:
                         p = _Parser(self._records[0])
-                        parse_record(record_buffer,p.pRecord,p.pField,p.pSubField,p.pValue)
+                        parse_record(record_buffer, p.pRecord, p.pField, p.pSubField, p.pValue)
                         if not p.closed:
                             raise NistException("Record type %d not terminated"%record)
                     else:
-                        nr = self._factory(record,False)
+                        nr = self._factory(record, False)
                         self += nr
                         p = _Parser(nr)
-                        parse_record(record_buffer,p.pRecord,p.pField,p.pSubField,p.pValue)
+                        parse_record(record_buffer, p.pRecord, p.pField, p.pSubField, p.pValue)
                         if not p.closed:
                             raise NistException("Record type %d not terminated"%record)
             else:
                 # Extract length from the four first bytes
-                length,idc = struct.unpack("!LB",buffer[offset:offset+5])
+                length, idc = struct.unpack("!LB", buffer[offset:offset+5])
                 # analyze CNT from type 1 to deduce the type of this binary record
                 pos = len(self._records)+1
                 CNT = self._records[0].CNT
                 type = int(CNT[pos-1][0])
-                nr = self._factory(type,True)
+                nr = self._factory(type, True)
                 nr.IDC = idc
                 nr.value = buffer[offset+5:offset+length]
                 self += nr
-                
-            offset += length;
+
+            offset += length
         # Check CNT fields (does it match content found during parsing ?)
         i = 0
         CNT = self._records[0]['CNT']
-        if len(CNT._subfields)!=len(self._records):
+        if len(CNT._subfields) != len(self._records):
             raise NistException("Bad CNT tag in record 1 (different number of records)")
         for i in range(len(CNT._subfields)):
-            if len(CNT._subfields[i].values)!=2:
+            if len(CNT._subfields[i].values) != 2:
                 raise NistException("Bad CNT tag in record 1 (bad number of values for subfield #%d)" % i)
-            if i==0:
-                if int(CNT._subfields[i].values[0])!=self._records[i].type:
+            if i == 0:
+                if int(CNT._subfields[i].values[0]) != self._records[i].type:
                     raise NistException("Bad CNT tag in record 1 (bad record type for subfield #%d)" % i)
-            elif int(CNT._subfields[i].values[0])!=self._records[i].type and int(CNT._subfields[i].values[1])!=int(self._records[i].IDC):
+            elif int(CNT._subfields[i].values[0]) != self._records[i].type and int(CNT._subfields[i].values[1]) != int(self._records[i].IDC):
                 raise NistException("Bad CNT tag in record 1 (bad record type or bad IDC for subfield #%d)" % i)
 
-    
+
 #_______________________________________________________________________________
 class AsciiRecord(object):
     """
@@ -672,30 +671,30 @@ class AsciiRecord(object):
     a final field with binary data.
     """
     SEPARATOR = GS
-    __slots__ = ['type','_fields','_value']
-    
-    def __init__(self,type,autocreate=True):
+    __slots__ = ['type', '_fields', '_value']
+
+    def __init__(self, type, autocreate=True):
         self.type = type
         self._fields = []
         self._value = ''  # value for binary record
         if autocreate:
-            self += Field(type,1,0)
-            if type==1:
+            self += Field(type, 1, 0)
+            if type == 1:
                 # Create the mandatory fields of type 1
-                self += Field(type,2,'0400')
-                self += Field(type,3,'')
-                self += Field(type,4,'')
+                self += Field(type, 2, '0400')
+                self += Field(type, 3, '')
+                self += Field(type, 4, '')
                 today = datetime.datetime.today()
-                v = '%04d%02d%02d' % (today.year,today.month,today.day)
-                self += Field(type,5,v)
-                self += Field(type,7,'000')
-                self += Field(type,8,'000')
+                v = '%04d%02d%02d' % (today.year, today.month, today.day)
+                self += Field(type, 5, v)
+                self += Field(type, 7, '000')
+                self += Field(type, 8, '000')
                 # generate somekind of transaction number
-                self += Field(type,9,uuid.uuid1().hex)
-                self += Field(type,11,'00.00')
-                self += Field(type,12,'00.00')
+                self += Field(type, 9, uuid.uuid1().hex)
+                self += Field(type, 11, '00.00')
+                self += Field(type, 12, '00.00')
             else:
-                self += Field(type,2,0)
+                self += Field(type, 2, 0)
 
     #
     # Add fields
@@ -705,7 +704,7 @@ class AsciiRecord(object):
         Add the field *f* to the record after some consistency checks.
 
         >>> r = AsciiRecord(2)
-        >>> r = r + Field(2,3,'OK')
+        >>> r = r + Field(2, 3, 'OK')
         >>> print(str(r))
          2.001: LEN                           : 0
          2.002: IDC                           : 0
@@ -721,13 +720,13 @@ class AsciiRecord(object):
             except:
                 pass
         # Add some check (unicity of number, unicity of alias, type of record)
-        if f.record!=self.type:
-            raise NistException("Bad record number %s for tag %d in record %s" % (f.record,f.tag,self.type))
+        if f.record != self.type:
+            raise NistException("Bad record number %s for tag %d in record %s" % (f.record, f.tag, self.type))
         for ff in self._fields:
-            if ff.tag==f.tag:
-                raise NistException("Tag %d already defined in record %s" % (f.tag,self.type))
-            if f.alias and ff.alias==f.alias:
-                raise NistException("Alias %s already defined in record %s" % (repr(f.alias),self.type))
+            if ff.tag == f.tag:
+                raise NistException("Tag %d already defined in record %s" % (f.tag, self.type))
+            if f.alias and ff.alias == f.alias:
+                raise NistException("Alias %s already defined in record %s" % (repr(f.alias), self.type))
         self._fields.append(f)
         return self
 
@@ -736,7 +735,7 @@ class AsciiRecord(object):
         Add the field *f* to the record after some consistency checks.
 
         >>> r = AsciiRecord(2)
-        >>> r += Field(2,3,'OK')
+        >>> r += Field(2, 3, 'OK')
         >>> print(str(r))
          2.001: LEN                           : 0
          2.002: IDC                           : 0
@@ -749,13 +748,13 @@ class AsciiRecord(object):
     #
     # Access fields
     #
-    def __getitem__(self,tag):
+    def __getitem__(self, tag):
         """
         Get a field from this record. The field is identified by *tag*, a number or an alias.
         If there is no such field, ``None`` is returned.
 
         >>> r = AsciiRecord(2)
-        >>> r += Field(2,3,'OK',alias='test')
+        >>> r += Field(2, 3, 'OK', alias='test')
         >>> r[3].value
         'OK'
         >>> r['test'].value
@@ -765,20 +764,20 @@ class AsciiRecord(object):
 
         """
         for f in self._fields:
-            if f.tag==tag or (f.alias and f.alias==tag):
+            if f.tag == tag or (f.alias and f.alias == tag):
                 return f
         return None
 
     #
     # Remove fields
     #
-    def __delitem__(self,tag):
+    def __delitem__(self, tag):
         """
         Remove the field identified by *tag* from the record.
         If there is not field for this tag, no exception is raised.
 
         >>> r = AsciiRecord(2)
-        >>> r += Field(2,3,'OK')
+        >>> r += Field(2, 3, 'OK')
         >>> print(str(r))
          2.001: LEN                           : 0
          2.002: IDC                           : 0
@@ -792,7 +791,7 @@ class AsciiRecord(object):
         >>> del r[4]
         """
         for f in self._fields:
-            if f.tag==tag:
+            if f.tag == tag:
                 self._fields.remove(f)
                 return
 
@@ -802,8 +801,8 @@ class AsciiRecord(object):
         to document the content of a NIST.
 
         >>> r = AsciiRecord(14)
-        >>> r += Field(14,3,'OK')
-        >>> r += BinaryField(14,999,b'data')
+        >>> r += Field(14, 3, 'OK')
+        >>> r += BinaryField(14, 999, b'data')
         >>> print(str(r))
         14.001: LEN                           : 0
         14.002: IDC                           : 0
@@ -812,19 +811,19 @@ class AsciiRecord(object):
         """
         ret = []
         for f in self._fields:
-            if isinstance(f,BinaryField):
+            if isinstance(f, BinaryField):
                 continue
-            ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: {0.value}".format(f) )
+            ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: {0.value}".format(f))
         for f in self._fields:
-            if isinstance(f,BinaryField):
-                ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: <buffer, size={1:,}>".format(f,len(f.value)) )
+            if isinstance(f, BinaryField):
+                ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: <buffer, size={1:,}>".format(f, len(f.value)))
                 break
         return '\n'.join(ret)
-        
+
     #
     # Shortcuts on field values
     #
-    def __setattr__(self,tag,v):
+    def __setattr__(self, tag, v):
         """
         Fields can be set directly using one the following syntax:
 
@@ -870,46 +869,46 @@ class AsciiRecord(object):
 
         """
 
-        if tag in ['type','_fields','_value']:
-            return object.__setattr__(self,tag,v)
+        if tag in ['type', '_fields', '_value']:
+            return object.__setattr__(self, tag, v)
         # look in existing fields
         for f in self._fields:
-            if f.alias==tag:
+            if f.alias == tag:
                 f.value = v
                 return
         # not found, check the standard pre-defined list of alias
         A = ALIASES[self.type]
         num_tag = None
-        for K,V in A.items():
-            if V==tag:
+        for K, V in A.items():
+            if V == tag:
                 num_tag = K
                 break
-        if tag=='DATA':
-            self += BinaryField(self.type,num_tag,v,alias=tag)
+        if tag == 'DATA':
+            self += BinaryField(self.type, num_tag, v, alias=tag)
             return
         elif num_tag:
-            self += Field(self.type,num_tag,v,alias=tag)
+            self += Field(self.type, num_tag, v, alias=tag)
             return
         # Check for the syntax '_integer'
-        if tag and tag[0]=='_':
+        if tag and tag[0] == '_':
             try:
                 num_tag = int(tag[1:])
                 # look in existing fields
                 for f in self._fields:
-                    if f.tag==num_tag:
+                    if f.tag == num_tag:
                         f.value = v
                         return
                 # add a new field
-                if A.get(num_tag,'')=='DATA':
-                    self += BinaryField(self.type,num_tag,v)
+                if A.get(num_tag, '') == 'DATA':
+                    self += BinaryField(self.type, num_tag, v)
                 else:
-                    self += Field(self.type,num_tag,v)
+                    self += Field(self.type, num_tag, v)
                 return
             except ValueError:
                 pass
-        raise NistException("Bad attribute name <%s> while trying to define a field in record of type %s" % (tag,self.type))
-        
-    def __getattr__(self,tag):
+        raise NistException("Bad attribute name <%s> while trying to define a field in record of type %s" % (tag, self.type))
+
+    def __getattr__(self, tag):
         """
         Fields value can be accessed directly using one the following syntax:
 
@@ -942,17 +941,17 @@ class AsciiRecord(object):
 
         """
         for f in self._fields:
-            if f.alias==tag:
+            if f.alias == tag:
                 return f.value
-        if tag and tag[0]=='_':
+        if tag and tag[0] == '_':
             try:
                 num_tag = int(tag[1:])
                 for f in self._fields:
-                    if f.tag==num_tag:
+                    if f.tag == num_tag:
                         return f.value
             except ValueError:
                 pass
-        raise NistException("Unkown or bad attribute <%s> while trying to retrieve a field in record of type %s" % (tag,self.type))
+        raise NistException("Unkown or bad attribute <%s> while trying to retrieve a field in record of type %s" % (tag, self.type))
 
     #
     # Conversion and parsing
@@ -973,19 +972,19 @@ class AsciiRecord(object):
         """
         # update the record length to match the full record side, including the LEN tag
         # make sure the binary field is at the end
-        s = self.SEPARATOR.join([f.NIST for f in self._fields[1:] if not isinstance(f,BinaryField)]+[f.NIST for f in self._fields[1:] if isinstance(f,BinaryField)])
+        s = self.SEPARATOR.join([f.NIST for f in self._fields[1:] if not isinstance(f, BinaryField)]+[f.NIST for f in self._fields[1:] if isinstance(f, BinaryField)])
         f1 = self._fields[0]
         f1.value = 0
         l = -1
         ret = ' '
         while 1:
-            ret = self.SEPARATOR.join([f1.NIST,s])
+            ret = self.SEPARATOR.join([f1.NIST, s])
             f1.value = len(ret)+1
-            if l==len(ret):
+            if l == len(ret):
                 break
             l = len(ret)
         return ret+FS
-        
+
 #_______________________________________________________________________________
 class BinaryRecord(object):
     """
@@ -1004,26 +1003,26 @@ class BinaryRecord(object):
      4.---:                               : <buffer, size=4>
 
     """
-    __slots__ = ['type','_IDC','value','format']
-    def __init__(self,type,autocreate=True):
+    __slots__ = ['type', '_IDC', 'value', 'format']
+    def __init__(self, type, autocreate=True):
         # fields: length (4 bytes), IDC (1 byte). Remaining bytes are not interpreted
         self.type = type
-        self._IDC = Field(type,2,1)
+        self._IDC = Field(type, 2, 1)
         self.value = b''
         self.format = ''
 
     # Access to the IDC (same API as for AsciiRecord)
     def get_IDC(self):
         return self._IDC.value
-    def set_IDC(self,value):
+    def set_IDC(self, value):
         self._IDC.value = value
-    IDC = property(get_IDC,set_IDC)
+    IDC = property(get_IDC, set_IDC)
 
     # Total length of the record (calculated)
     @property
     def length(self):
         return 5+len(self.value)
-    
+
     # The NIST representation of this record
     @property
     def NIST(self):
@@ -1031,11 +1030,11 @@ class BinaryRecord(object):
         Calculation of the NIST binary representation of this record.
         A bytes object is returned.
         """
-        buf = struct.pack("!LB",self.length,self.IDC)+self.value
+        buf = struct.pack("!LB", self.length, self.IDC)+self.value
         return buf
 
     # helper to parse the binary value
-    def pack(self,format,*args):
+    def pack(self, format, *args):
         """
         A direct wrapper on struct.pack.
         If successful, the format is kept in the object and used in __str__ to improve
@@ -1046,7 +1045,7 @@ class BinaryRecord(object):
 
         >>> r = BinaryRecord(4)
         >>> r.IDC = 1
-        >>> r.pack("!LHB",3,2,1,b'my image data')
+        >>> r.pack("!LHB", 3, 2, 1, b'my image data')
         >>> print(r.NIST)
         b'\\x00\\x00\\x00\\x19\\x01\\x00\\x00\\x00\\x03\\x00\\x02\\x01my image data'
 
@@ -1058,10 +1057,10 @@ class BinaryRecord(object):
                                               -> 2
                                               -> 1
         """
-        self.value = struct.pack(format,*args[:-1]) + args[-1]
+        self.value = struct.pack(format, *args[:-1]) + args[-1]
         self.format = format
-        
-    def unpack(self,format):
+
+    def unpack(self, format):
         """
         Unpack the value of the record (without the length and the IDC) and return
         the value described in the format and the remaining buffer (usually an image data)
@@ -1071,7 +1070,7 @@ class BinaryRecord(object):
 
         >>> r = BinaryRecord(4)
         >>> r.IDC = 1
-        >>> r.pack("!LHB",3,2,1,b'my image data')
+        >>> r.pack("!LHB", 3, 2, 1, b'my image data')
         >>> r.unpack("!BHL")    # format changed for the test!
         (0, 0, 50332161, b'my image data')
 
@@ -1084,24 +1083,24 @@ class BinaryRecord(object):
                                               -> 50332161
         """
         size = struct.calcsize(self.format)
-        result = struct.unpack(format,self.value[:size])
+        result = struct.unpack(format, self.value[:size])
         self.format = format
         return result+(self.value[size:],)
 
-    # Nice display    
+    # Nice display
     def __str__(self):
         ret = []
-        ret.append("{0:2}.{1:03}: {2:30}: {3}".format(self.type,1,'LEN',self.length) )
-        ret.append("{0:2}.{1:03}: {2:30}: {3}".format(self.type,2,'IDC',self.IDC) )
-        ret.append("{0:2}.---: {1:30}: <buffer, size={2:,}>".format(self.type,'',len(self.value)) )
+        ret.append("{0:2}.{1:03}: {2:30}: {3}".format(self.type, 1, 'LEN', self.length))
+        ret.append("{0:2}.{1:03}: {2:30}: {3}".format(self.type, 2, 'IDC', self.IDC))
+        ret.append("{0:2}.---: {1:30}: <buffer, size={2:,}>".format(self.type, '', len(self.value)))
         if self.format:
             size = struct.calcsize(self.format)
-            args = struct.unpack(self.format,self.value[:size])
+            args = struct.unpack(self.format, self.value[:size])
             for arg in args:
-                ret.append("        {0:30}-> {1}".format('',arg) )
+                ret.append("        {0:30}-> {1}".format('', arg))
 
         return '\n'.join(ret)
-            
+
 #_______________________________________________________________________________
 class Field(object):
     """
@@ -1109,7 +1108,7 @@ class Field(object):
 
     A field can be configured to accept only a single value (no subfields, no items)
 
-    >>> f = Field(2,3,type="F")
+    >>> f = Field(2, 3, type="F")
     >>> f.value = 'ok'
     >>> f.value = [1, 2]
     Traceback (most recent call last):
@@ -1122,7 +1121,7 @@ class Field(object):
 
     Or only a subfield:
 
-    >>> f = Field(2,3,type="S")
+    >>> f = Field(2, 3, type="S")
     >>> f.value = [1, 2]
     >>> f.value = 'ok'
     Traceback (most recent call last):
@@ -1135,7 +1134,7 @@ class Field(object):
 
     Or only subfields with items:
 
-    >>> f = Field(2,3,type="I")
+    >>> f = Field(2, 3, type="I")
     >>> f.value = [[1, 2]]
     >>> f.value = [1, 2]
     Traceback (most recent call last):
@@ -1148,34 +1147,34 @@ class Field(object):
 
     Or subfields can be forbidden unless they have items:
 
-    >>> f = Field(2,3,type="FI")
-    >>> f.add_subfields( SubField('a',type="SI") )
+    >>> f = Field(2, 3, type="FI")
+    >>> f.add_subfields( SubField('a', type="SI") )
     Traceback (most recent call last):
     ...
     nistitl.NistException: Subfield of 2.003: cannot have a value: 'a'
 
     Or a subfield with items can be forbidden:
 
-    >>> f = Field(2,3,type="SF")
-    >>> f.add_subfields( SubField(['a', 'b'],type="SI") )
+    >>> f = Field(2, 3, type="SF")
+    >>> f.add_subfields( SubField(['a', 'b'], type="SI") )
     Traceback (most recent call last):
     ...
     nistitl.NistException: Subfield of 2.003: cannot have items
 
     """
-    __slots__ = ['record','tag','type','format','alias','_subfields','_value']
+    __slots__ = ['record', 'tag', 'type', 'format', 'alias', '_subfields', '_value']
     SEPARATOR = RS
-    
-    def __init__(self,record,tag,value='',type='FSI',format='%d.%03d:',alias=''):
+
+    def __init__(self, record, tag, value='', type='FSI', format='%d.%03d:', alias=''):
         """
         Creation of a new field.
-        
+
         - *record* indicates the record's type and must be an integer.
         - *tag* is the tag number and will be converted to an integer.
         - *value* the initial value. Must be a string or a list.
         - *type* indicates the possible type for the field content. It can be a
           combination of:
-        
+
             - 'F': a single field, i.e. a simple value
             - 'S': this field can contain sub fields
             - 'I': this field can contain items
@@ -1195,38 +1194,38 @@ class Field(object):
         if self._subfields:
             return [x.value for x in self._subfields]
         return self._value
-    def set_value(self,val):
+    def set_value(self, val):
         # if value is a list => create subfields
         self._value = ''
         self._subfields = []
         if not isinstance(val, (list, tuple)):
             if val and not 'F' in self.type:
-                raise NistException("Field "+self.format% (self.record,self.tag)+" cannot have a value (only subfields and/or items)")
+                raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have a value (only subfields and/or items)")
             self._value = val
             return
         if not 'S' in self.type and not 'I' in self.type:
-            raise NistException("Field "+self.format% (self.record,self.tag)+" cannot have subfields")
+            raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields")
 
         for v in val:
             if not isinstance(v, (list, tuple)):
-                self.add_subfields( SubField(v,self.type) )
+                self.add_subfields(SubField(v, self.type))
             else:
-                sf = SubField('',self.type)
+                sf = SubField('', self.type)
                 sf.add_values(*v)
                 self.add_subfields(sf)
-        
-    value = property(get_value,set_value)
+
+    value = property(get_value, set_value)
     """
     Access to the value of the field. The value is a string or a list
     of subfield values.
 
     """
-    
-    def __getitem__(self,idx):
+
+    def __getitem__(self, idx):
         """
         Access the *idx*-th sub field in the field.
 
-        >>> f= Field(2,3,['one','two'])
+        >>> f= Field(2, 3, ['one', 'two'])
         >>> print(f[0].value)
         one
         >>> print(f[1].value)
@@ -1234,18 +1233,18 @@ class Field(object):
         """
         return self._subfields[idx]
 
-    def add_subfields(self,*sf):
+    def add_subfields(self, *sf):
         """
         Add a set of subfields to this field. Some consistency checks are run.
         """
         if sf and not ('S' in self.type or 'I' in self.type):
-            raise NistException("Field "+self.format% (self.record,self.tag)+" cannot have subfields")
+            raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields")
         self._value = ''
         for x in sf:
             if x._value and not 'S' in self.type:
-                raise NistException("Subfield of "+self.format% (self.record,self.tag)+" cannot have a value: "+repr(x.value))
+                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have a value: "+repr(x.value))
             if x.values and not 'I' in self.type:
-                raise NistException("Subfield of "+self.format% (self.record,self.tag)+" cannot have items")
+                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have items")
             x.type = self.type
             self._subfields.append(x)
 
@@ -1255,7 +1254,7 @@ class Field(object):
         """
         self._value = ''
         self._subfields = []
-        
+
     @property
     def NIST(self):
         """
@@ -1264,11 +1263,11 @@ class Field(object):
 
         If the value of the field is None, it is interpreted as an empty field.
 
-        >>> f = Field(2,2,None)
+        >>> f = Field(2, 2, None)
         >>> f.NIST
         b'2.002:'
         """
-        begin = self.format % (self.record,self.tag)
+        begin = self.format % (self.record, self.tag)
         # This is standard text field, with possible subfields
         if not self._subfields:
             if self.value is None:
@@ -1284,13 +1283,13 @@ class BinaryField(object):
     A binary field used as the last field in an :class:`AsciiRecord` record.
 
     """
-    __slots__ = ['record','tag','_value','format','alias']
+    __slots__ = ['record', 'tag', '_value', 'format', 'alias']
 
     # XXX use :class: or :method: everywhere
-    def __init__(self,record,tag,value=b'',format='%d.%03d:',alias='',**ignored):
+    def __init__(self, record, tag, value=b'', format='%d.%03d:', alias='', **ignored):
         """
         Creation of a new binary field.
-        
+
         - *record* indicates the record's type and must be an integer.
         - *tag* is the tag number and will be converted to an integer.
         - *value* the initial value. Must be a bytes object.
@@ -1305,22 +1304,22 @@ class BinaryField(object):
 
     def get_value(self):
         return self._value
-    def set_value(self,val):
+    def set_value(self, val):
         self._value = val
-    value = property(get_value,set_value)
+    value = property(get_value, set_value)
     """
     Access to the value of the field. The value is a bytes object.
     """
-    
+
     @property
     def NIST(self):
         """
         Calculation of the NIST binary representation of this field.
         A bytes object is returned.
         """
-        begin = self.format % (self.record,self.tag)
+        begin = self.format % (self.record, self.tag)
         return begin.encode('latin-1')+self.value
-    
+
 #_______________________________________________________________________________
 class SubField(object):
     """
@@ -1353,15 +1352,15 @@ class SubField(object):
     """
     __slots__ = ['_value', 'type', 'values']
     SEPARATOR = US
-    
-    def __init__(self,value='',type='SI'):
+
+    def __init__(self, value='', type='SI'):
         """
         Creation of a new subfield.
-        
+
         - *value* the initial value. Must be a string or a list of strings.
         - *type* indicates the possible type for the field content. It can be a
           combination of:
-        
+
             - 'S': a single subfield, i.e. a simple value
             - 'I': this subfield can contain items
         """
@@ -1369,12 +1368,12 @@ class SubField(object):
         self.type = type
         self.values = []
         self.value = value
-        
+
     def get_value(self):
         if 'I' in self.type and self.values:
             return self.values
         return self._value
-    def set_value(self,val):
+    def set_value(self, val):
         self._value = ''
         self.values = []
         if not isinstance(val, (list, tuple)):
@@ -1383,14 +1382,14 @@ class SubField(object):
             self._value = val
             return
         self.add_values(*val)
-        
-    value = property(get_value,set_value)
+
+    value = property(get_value, set_value)
     """
     Access to the value of the subfield. The value is a string or a list
     of strings.
     """
-    
-    def add_values(self,*i):
+
+    def add_values(self, *i):
         """
         Add multiple values as items of this subfield.
         """
@@ -1398,8 +1397,8 @@ class SubField(object):
             raise NistException("Subfield cannot have items")
         for j in i:
             self.values.append(j)
-        
-    def __getitem__(self,idx):
+
+    def __getitem__(self, idx):
         """
         Return th *idx*-th item.
 
@@ -1433,7 +1432,7 @@ class SubField(object):
         if not self.values:
             if self.value is None:
                 return b''
-            if type(self.value) is type(1):
+            if isinstance(self.value, int):
                 return str(self.value).encode('latin-1')
             return self.value.encode('latin-1')
         return self.SEPARATOR.join([str(v).encode('latin-1') for v in self.values])
