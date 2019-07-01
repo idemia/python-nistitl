@@ -1,0 +1,12 @@
+[MASTER]
+
+ignore=useless-object-inheritance
+
+[MESSAGES CONTROL]
+
+disable=fixme,useless-object-inheritance,line-too-long,too-many-lines,missing-docstring,assigning-non-slot,invalid-name
+
+[BASIC]
+
+variable-naming-style=any
+
