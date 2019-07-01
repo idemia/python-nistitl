@@ -14,6 +14,10 @@ nistitl
     :target: https://pypi.org/project/nistitl/
     :alt: Python 3.x
 
+.. image:: https://img.shields.io/pypi/v/nistitl.svg
+    :target: https://pypi.org/project/nistitl/
+    :alt: v?.?
+
 .. image:: https://travis-ci.org/idemia/python-nistitl.svg?branch=master
     :target: https://travis-ci.org/idemia/python-nistitl
     :alt: Build Status (Travis CI)
