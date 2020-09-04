@@ -225,13 +225,13 @@ class Message(object):
     def __init__(self):
         self.reset()
 
-    def reset(self, autocreate=True):
+    def reset(self, autocreate=True, autosort=True):
         """
         Reset the record list, leaving only a blank new type-1 record.
         if *autocreate* is True, the type-1 record is initialized.
         """
         # Create type-1 record
-        r1 = AsciiRecord(1, autocreate)
+        r1 = AsciiRecord(1, autocreate, autosort)
         self._records = [r1]
 
     #
@@ -517,6 +517,7 @@ class Message(object):
         >>> msg.TOT = 'TEST'
         >>> msg[0].DAT = '20190517'
         >>> msg[0].TCN = 'doctest'
+        >>> msg[0].TCR = 'TCR'
         >>> print(str(msg))
          1.001: LEN                           : 0
          1.002: VER                           : 0400
@@ -526,6 +527,7 @@ class Message(object):
          1.007: DAI                           : 000
          1.008: ORI                           : 000
          1.009: TCN                           : doctest
+         1.010: TCR                           : TCR
          1.011: NSR                           : 00.00
          1.012: NTR                           : 00.00
          2.001: LEN                           : 0
@@ -557,12 +559,12 @@ class Message(object):
         self.CNT    # pylint: disable=pointless-statement
         return b''.join([r.NIST for r in self._records]+[b''])
 
-    def _factory(self, record, autocreate):
+    def _factory(self, record, autocreate, autosort):
         if record in [3, 5, 6]:
             warnings.warn("Record of type %s" % record, DeprecationWarning, 2)
         if record in [3, 4, 5, 6, 7, 8]:
             return BinaryRecord(record)
-        return AsciiRecord(record, autocreate=autocreate)
+        return AsciiRecord(record, autocreate=autocreate, autosort=autosort)
 
     def parse(self, buffer):
         """
@@ -584,7 +586,7 @@ class Message(object):
         2
 
         """
-        self.reset(autocreate=False)
+        self.reset(autocreate=False, autosort=True)
         offset = 0
         while offset+4 < len(buffer):
             mo = RE_TAG_LEN.match(buffer[offset:])
@@ -617,7 +619,7 @@ class Message(object):
 
                     # parse the first part of the buffer (replace GS with FS)
                     text_buffer = record_buffer[:pos_end]+FS
-                    nr = self._factory(record, False)
+                    nr = self._factory(record, False, True)
                     self += nr
                     p = _Parser(nr)
                     parse_record(text_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
@@ -637,7 +639,7 @@ class Message(object):
                         if not p.closed:
                             raise NistException("Record type %d not terminated"%record)
                     else:
-                        nr = self._factory(record, False)
+                        nr = self._factory(record, False, True)
                         self += nr
                         p = _Parser(nr)
                         parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
@@ -650,7 +652,7 @@ class Message(object):
                 pos = len(self._records)+1
                 CNT = self._records[0].CNT
                 record_type = int(CNT[pos-1][0])
-                nr = self._factory(record_type, True)
+                nr = self._factory(record_type, True, True)
                 nr.IDC = idc
                 nr.value = buffer[offset+5:offset+length]
                 self += nr
@@ -677,14 +679,19 @@ class AsciiRecord(object):
     An ASCII record. ASCII records, or text record, contain text data encoded
     in latin-1 organized in fields, subfields and items. They can also contain
     a final field with binary data.
+
+    When creating an AsciiRecord you can specify the option ``autosort`` to ``True``
+    (the default) or to ``False``. When true, the fields will be sorted by numeric
+    order, expect for ``BinaryField`` that will remain at the end.
     """
     SEPARATOR = GS
-    __slots__ = ['type', '_fields', '_value']
+    __slots__ = ['type', '_fields', '_value', '_autosort']
 
-    def __init__(self, type, autocreate=True):
+    def __init__(self, type, autocreate=True, autosort=True):
         self.type = type
         self._fields = []
         self._value = ''  # value for binary record
+        self._autosort = autosort
         if autocreate:
             self += Field(self.type, 1, 0)
             if self.type == 1:
@@ -818,14 +825,11 @@ class AsciiRecord(object):
         14.999: DATA                          : <buffer, size=4>
         """
         ret = []
-        for f in self._fields:
-            if isinstance(f, BinaryField):
-                continue
-            ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: {0.value}".format(f))
-        for f in self._fields:
-            if isinstance(f, BinaryField):
+        for f in self._sorted_fields(0):
+            if not isinstance(f, BinaryField):
+                ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: {0.value}".format(f))
+            else:
                 ret.append("{0.record:2}.{0.tag:03}: {0.alias:30}: <buffer, size={1:,}>".format(f, len(f.value)))
-                break
         return '\n'.join(ret)
 
     #
@@ -877,7 +881,7 @@ class AsciiRecord(object):
 
         """
 
-        if tag in ['type', '_fields', '_value']:
+        if tag in ['type', '_fields', '_value', '_autosort']:
             return object.__setattr__(self, tag, v)
         # look in existing fields
         for f in self._fields:
@@ -965,6 +969,23 @@ class AsciiRecord(object):
     # Conversion and parsing
     #
 
+    def _sorted_fields(self, start):
+        a = []
+        b = []
+        for f in self._fields[start:]:
+            if not isinstance(f, BinaryField):
+                a.append(f)
+            else:
+                b.append(f)
+        if self._autosort:
+            for x in sorted(a, key=lambda x: x.tag):
+                yield x
+        else:
+            for x in a:
+                yield x
+        for x in b:
+            yield x
+
     @property
     def NIST(self):
         """
@@ -977,10 +998,23 @@ class AsciiRecord(object):
         >>> print(r.NIST)
         b'10.001:40\\x1d10.002:2\\x1d10.999:my image data\\x1c'
 
+        >>> r = AsciiRecord(1, autosort=True)
+        >>> r.TCN = 'TCN'
+        >>> r.TCR = 'TCR'
+        >>> r.DAT = '20200904'
+        >>> print(r.NIST)
+        b'1.001:114\\x1d1.002:0400\\x1d1.003:\\x1d1.004:\\x1d1.005:20200904\\x1d1.007:000\\x1d1.008:000\\x1d1.009:TCN\\x1d1.010:TCR\\x1d1.011:00.00\\x1d1.012:00.00\\x1c'
+
+        >>> r = AsciiRecord(1, autosort=False)
+        >>> r.TCN = 'TCN'
+        >>> r.TCR = 'TCR'
+        >>> r.DAT = '20200904'
+        >>> print(r.NIST)
+        b'1.001:114\\x1d1.002:0400\\x1d1.003:\\x1d1.004:\\x1d1.005:20200904\\x1d1.007:000\\x1d1.008:000\\x1d1.009:TCN\\x1d1.011:00.00\\x1d1.012:00.00\\x1d1.010:TCR\\x1c'
         """
         # update the record length to match the full record side, including the LEN tag
         # make sure the binary field is at the end
-        s = self.SEPARATOR.join([f.NIST for f in self._fields[1:] if not isinstance(f, BinaryField)]+[f.NIST for f in self._fields[1:] if isinstance(f, BinaryField)])
+        s = self.SEPARATOR.join([f.NIST for f in self._sorted_fields(1)])
         f1 = self._fields[0]
         f1.value = 0
         l = -1
