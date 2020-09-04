@@ -682,7 +682,7 @@ class AsciiRecord(object):
 
     When creating an AsciiRecord you can specify the option ``autosort`` to ``True``
     (the default) or to ``False``. When true, the fields will be sorted by numeric
-    order, expect for ``BinaryField`` that will remain at the end.
+    order, except for ``BinaryField`` that will remain at the end.
     """
     SEPARATOR = GS
     __slots__ = ['type', '_fields', '_value', '_autosort']
