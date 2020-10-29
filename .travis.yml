@@ -8,10 +8,12 @@ branches:
 
 matrix:
   include:
+    - python: 3.9
+      env: TOXENV=py39
     - python: 3.8
-      env: TOXENV=py38
+      env: TOXENV=py38,docs
     - python: 3.7
-      env: TOXENV=py37,docs
+      env: TOXENV=py37
     - python: 3.6
       env: TOXENV=py36
 
