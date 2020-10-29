@@ -138,8 +138,8 @@ class NistError(enum.Enum):
     CANNOT_DELETE_TYPE1 = 7
     RECORD_NOT_FOUND = 8
     RECORD_NOT_TERMINATED = 9
-    FIELD_TOO_SHORT = 10
-    FIELD_TOO_LONG = 11
+    NIST_TOO_SHORT = 10
+    NIST_TOO_LONG = 11
     BAD_TAG_DUPLICATE = 12
     BAD_ALIAS_DUPLICATE = 13
     UNKNOWN_ATTRIBUTE = 14
@@ -251,6 +251,7 @@ class Message(object):
         """
         Reset the record list, leaving only a blank new type-1 record.
         if *autocreate* is True, the type-1 record is initialized.
+        If *autosort* is True, the tags are sorted by numeric order.
         """
         # Create type-1 record
         r1 = AsciiRecord(1, autocreate, autosort)
@@ -607,6 +608,45 @@ class Message(object):
         >>> len(new_msg)
         2
 
+        If the buffer is truncated, an exception is raised:
+
+        >>> new_msg = Message()
+        >>> new_msg.parse( msg.NIST[:-1] )
+        Traceback (most recent call last):
+        ...
+        nistitl.NistException: NIST_TOO_SHORT: NIST buffer too short (missing bytes) when parsing record 2
+
+        If there are extra bytes to the buffer, this may indicate a binary record is truncated:
+
+        >>> new_msg = Message()
+        >>> new_msg.parse( msg.NIST + b'x12345' )
+        Traceback (most recent call last):
+        ...
+        nistitl.NistException: BAD_CONTENT: Could not recognize binary record, bad content or bad record
+
+        This works also with type 14 records that end with a binary buffer:
+
+        >>> msg = Message()
+        >>> msg.TOT = 'TEST'
+        >>> msg[0].DAT = '20190517'
+        >>> msg[0].TCN = 'doctest'
+        >>> r = AsciiRecord(14)
+        >>> r += Field(14, 3, 'OK')
+        >>> r += BinaryField(14, 999, b'data')
+        >>> msg = msg + r
+
+        >>> new_msg = Message()
+        >>> new_msg.parse( msg.NIST[:-1])
+        Traceback (most recent call last):
+        ...
+        nistitl.NistException: NIST_TOO_SHORT: NIST buffer too short (missing bytes) when parsing record 14
+
+        >>> new_msg = Message()
+        >>> new_msg.parse( msg.NIST + b'x')
+        Traceback (most recent call last):
+        ...
+        nistitl.NistException: NIST_TOO_LONG: NIST buffer too long (extra bytes)
+
         """
         self.reset(autocreate=False, autosort=True)
         offset = 0
@@ -622,16 +662,13 @@ class Message(object):
                     if V == 'DATA':
                         tag_for_data = K
                         break
-                record_buffer = buffer[offset:offset+length]
 
-                # check len for Type1 and Type2
-                if buffer[offset+length-1:offset+length] != FS:
-                    tooShort = buffer.find(FS, offset+length, len(buffer)) - (offset+length)
-                    tooLong = abs(buffer.rfind(FS, offset, offset+length) - (offset+length))
-                    if tooShort < tooLong:
-                        raise NistException("Field length too short in record %s"%record, NistError.FIELD_TOO_SHORT)
-                    else:
-                        raise NistException("Field length too long in record %s"%record, NistError.FIELD_TOO_LONG)
+                # Check we have enough space left to fetch length bytes
+                if not offset+length<=len(buffer):
+                    raise NistException("NIST buffer too short (missing bytes) when parsing record %s" % record, NistError.NIST_TOO_SHORT)
+
+                # We can now extract the buffer for this record
+                record_buffer = buffer[offset:offset+length]
 
                 if tag_for_data:
                     pos = record_buffer.find(str(tag_for_data).encode('latin-1')+b':')
@@ -683,13 +720,27 @@ class Message(object):
                 # analyze CNT from type 1 to deduce the type of this binary record
                 pos = len(self._records)+1
                 CNT = self._records[0].CNT
-                record_type = int(CNT[pos-1][0])
+                try:
+                    record_type = int(CNT[pos-1][0])
+                except IndexError as exc:
+                    # Invalid record
+                    raise NistException("Could not recognize binary record, bad content or bad record", NistError.BAD_CONTENT) from exc
+
+                # Check we have enough space left to fetch length bytes
+                if not offset+length<=len(buffer):
+                    raise NistException("NIST buffer too short (missing bytes) when parsing record %s" % record, NistError.NIST_TOO_SHORT)
+
                 nr = self._factory(record_type, True, True)
                 nr.IDC = idc
                 nr.value = buffer[offset+5:offset+length]
                 self += nr
 
             offset += length
+
+        # Check if there are remaining bytes not parsed
+        if offset < len(buffer):
+            raise NistException("NIST buffer too long (extra bytes)", NistError.NIST_TOO_LONG)
+
         # Check CNT fields (does it match content found during parsing ?)
         i = 0
         CNT = self._records[0]['CNT']
