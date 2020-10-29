@@ -106,6 +106,7 @@ import re
 import uuid
 import struct
 import warnings
+import enum
 
 __version__ = '0.3'
 __author__ = "Olivier Heurtier"
@@ -125,17 +126,36 @@ US = b'\x1f'
 #_______________________________________________________________________________
 # Exception specific to this package, required not to hide the Exception that
 # can result from a syntax error
+
+@enum.unique
+class NistError(enum.Enum):
+    BAD_RECORD = 1
+    BAD_TAG_NAME = 2
+    BAD_TAG_FORMAT = 3
+    BAD_RECORD_NUMBER = 4
+    BAD_CONTENT = 5
+    CANNOT_ADD_TYPE1 = 6
+    CANNOT_DELETE_TYPE1 = 7
+    RECORD_NOT_FOUND = 8
+    RECORD_NOT_TERMINATED = 9
+    FIELD_TOO_SHORT = 10
+    FIELD_TOO_LONG = 11
+    BAD_TAG_DUPLICATE = 12
+    BAD_ALIAS_DUPLICATE = 13
+    UNKNOWN_ATTRIBUTE = 14
+    BAD_FIELD_VALUE = 15
+    BAD_SUBFIELD_VALUE = 16
+
 class NistException(Exception):
     """
     Exception class used to report errors generated from this module.
     """
+    def __init__(self, message, error):
+        super().__init__(message)
+        self.error = error
 
-
-class ParsingException(Exception):
-    """
-    Exception class used to report invalid NIST format detected during parsing.
-    """
-    # XXX add data about the error
+    def __str__(self):
+        return '{}: {}'.format(self.error.name, super().__str__())
 
 def parse_record(buffer, push_record, push_field, push_subfield, push_value):
     """
@@ -150,7 +170,9 @@ def parse_record(buffer, push_record, push_field, push_subfield, push_value):
         for field in re.split(GS, rec):
             mo = RE_TAG_CONTENT.match(field)
             if not mo:
-                raise ParsingException()
+                # this is due to invalid len in current record but don't know if too short or too long
+                # return Invalid record data
+                raise NistException("Invalid record data", NistError.BAD_RECORD)
             sfs = mo.group('content').split(RS)
             for sf in sfs:
                 items = sf.split(US)
@@ -182,10 +204,10 @@ class _Parser(object):
     def push_field(self, tag, value):
         mo = RE_TAG_BEGIN.match(tag)
         if not mo:
-            raise NistException("Illegal tag name %s" % tag)
+            raise NistException("Illegal tag name %s" % tag, NistError.BAD_TAG_NAME)
         record = int(mo.group('record'))
         if record != self._record.type:
-            raise NistException("Illegal record number in tag name %s" % tag)
+            raise NistException("Illegal record number in tag name %s" % tag, NistError.BAD_RECORD_NUMBER)
         tag = int(mo.group('tag'))
         f = self._record[tag]
         if not f:
@@ -251,7 +273,7 @@ class Message(object):
         """
         # check the record
         if record.type == 1 and self._records:
-            raise NistException("Cannot add a type 1 record: it must be the first record")
+            raise NistException("Cannot add a type 1 record: it must be the first record", NistError.CANNOT_ADD_TYPE1)
         self._records.append(record)
         return self
 
@@ -396,24 +418,24 @@ class Message(object):
         >>> del msg[(1, 0)]
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Cannot delete the type 1 record
+        nistitl.NistException: CANNOT_DELETE_TYPE1: Cannot delete the type 1 record
 
         >>> del msg[0]
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Cannot delete the type 1 record
+        nistitl.NistException: CANNOT_DELETE_TYPE1: Cannot delete the type 1 record
 
         """
         if isinstance(key, (list, tuple)) and len(key) == 2:
             if key[0] == 1:
-                raise NistException("Cannot delete the type 1 record")
+                raise NistException("Cannot delete the type 1 record", NistError.CANNOT_DELETE_TYPE1)
             # Find the record for the type and IDC
             for r in self._records:
                 if r.type == key[0] and int(r.IDC) == int(key[1]):
                     self._records.remove(r)
                     return
         if key == 0:
-            raise NistException("Cannot delete the type 1 record")
+            raise NistException("Cannot delete the type 1 record", NistError.CANNOT_DELETE_TYPE1)
         del self._records[key]
 
     def __sub__(self, record):
@@ -432,13 +454,13 @@ class Message(object):
         >>> msg = msg - r
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Cannot remove a record: record not found
+        nistitl.NistException: RECORD_NOT_FOUND: Cannot remove a record: record not found
         """
         for r in self._records:
             if r is record:
                 self._records.remove(r)
                 return self
-        raise NistException("Cannot remove a record: record not found")
+        raise NistException("Cannot remove a record: record not found", NistError.RECORD_NOT_FOUND)
 
     def __isub__(self, record):
         """
@@ -456,7 +478,7 @@ class Message(object):
         >>> msg -= r
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Cannot remove a record: record not found
+        nistitl.NistException: RECORD_NOT_FOUND: Cannot remove a record: record not found
         """
         self.__sub__(record)
         return self
@@ -601,6 +623,16 @@ class Message(object):
                         tag_for_data = K
                         break
                 record_buffer = buffer[offset:offset+length]
+
+                # check len for Type1 and Type2
+                if buffer[offset+length-1:offset+length] != FS:
+                    tooShort = buffer.find(FS, offset+length, len(buffer)) - (offset+length)
+                    tooLong = abs(buffer.rfind(FS, offset, offset+length) - (offset+length))
+                    if tooShort < tooLong:
+                        raise NistException("Field length too short in record %s"%record, NistError.FIELD_TOO_SHORT)
+                    else:
+                        raise NistException("Field length too long in record %s"%record, NistError.FIELD_TOO_LONG)
+
                 if tag_for_data:
                     pos = record_buffer.find(str(tag_for_data).encode('latin-1')+b':')
                 else:
@@ -615,7 +647,7 @@ class Message(object):
 
                     # check we still are pointing to a valid binary tag name
                     if not RE_TAG_BEGIN.match(record_buffer[pos_end+1:pos+4].decode('latin-1')):
-                        raise NistException("Illegal format for tag %s (%s)" % (tag_for_data, record_buffer[pos_end+1:pos+4].decode('latin-1')))
+                        raise NistException("Illegal format for tag %s (%s)" % (tag_for_data, record_buffer[pos_end+1:pos+4].decode('latin-1')), NistError.BAD_TAG_FORMAT)
 
                     # parse the first part of the buffer (replace GS with FS)
                     text_buffer = record_buffer[:pos_end]+FS
@@ -624,7 +656,7 @@ class Message(object):
                     p = _Parser(nr)
                     parse_record(text_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
                     if not p.closed:
-                        raise NistException("Record type %d not terminated"%record)
+                        raise NistException("Record type %d not terminated"%record, NistError.RECORD_NOT_TERMINATED)
 
                     # Add the binary part
                     f = BinaryField(record, tag_for_data)
@@ -637,14 +669,14 @@ class Message(object):
                         p = _Parser(self._records[0])
                         parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
                         if not p.closed:
-                            raise NistException("Record type %d not terminated"%record)
+                            raise NistException("Record type %d not terminated"%record, NistError.RECORD_NOT_TERMINATED)
                     else:
                         nr = self._factory(record, False, True)
                         self += nr
                         p = _Parser(nr)
                         parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
                         if not p.closed:
-                            raise NistException("Record type %d not terminated"%record)
+                            raise NistException("Record type %d not terminated"%record, NistError.RECORD_NOT_TERMINATED)
             else:
                 # Extract length from the four first bytes
                 length, idc = struct.unpack("!LB", buffer[offset:offset+5])
@@ -662,15 +694,15 @@ class Message(object):
         i = 0
         CNT = self._records[0]['CNT']
         if len(CNT._subfields) != len(self._records):
-            raise NistException("Bad CNT tag in record 1 (different number of records)")
+            raise NistException("Bad CNT tag in record 1 (different number of records)", NistError.BAD_CONTENT)
         for i in range(len(CNT._subfields)):
             if len(CNT._subfields[i].values) != 2:
-                raise NistException("Bad CNT tag in record 1 (bad number of values for subfield #%d)" % i)
+                raise NistException("Bad CNT tag in record 1 (bad number of values for subfield #%d)" % i, NistError.BAD_CONTENT)
             if i == 0:
                 if int(CNT._subfields[i].values[0]) != self._records[i].type:
-                    raise NistException("Bad CNT tag in record 1 (bad record type for subfield #%d)" % i)
+                    raise NistException("Bad CNT tag in record 1 (bad record type for subfield #%d)" % i, NistError.BAD_CONTENT)
             elif int(CNT._subfields[i].values[0]) != self._records[i].type and int(CNT._subfields[i].values[1]) != int(self._records[i].IDC):
-                raise NistException("Bad CNT tag in record 1 (bad record type or bad IDC for subfield #%d)" % i)
+                raise NistException("Bad CNT tag in record 1 (bad record type or bad IDC for subfield #%d)" % i, NistError.BAD_CONTENT)
 
 
 #_______________________________________________________________________________
@@ -736,12 +768,12 @@ class AsciiRecord(object):
                 pass
         # Add some check (unicity of number, unicity of alias, type of record)
         if f.record != self.type:
-            raise NistException("Bad record number %s for tag %d in record %s" % (f.record, f.tag, self.type))
+            raise NistException("Bad record number %s for tag %d in record %s" % (f.record, f.tag, self.type), NistError.BAD_RECORD_NUMBER)
         for ff in self._fields:
             if ff.tag == f.tag:
-                raise NistException("Tag %d already defined in record %s" % (f.tag, self.type))
+                raise NistException("Tag %d already defined in record %s" % (f.tag, self.type), NistError.BAD_TAG_DUPLICATE)
             if f.alias and ff.alias == f.alias:
-                raise NistException("Alias %s already defined in record %s" % (repr(f.alias), self.type))
+                raise NistException("Alias %s already defined in record %s" % (repr(f.alias), self.type), NistError.BAD_ALIAS_DUPLICATE)
         self._fields.append(f)
         return self
 
@@ -861,12 +893,12 @@ class AsciiRecord(object):
         >>> r.UUU = 'unknown alias'
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Bad attribute name <UUU> while trying to define a field in record of type 10
+        nistitl.NistException: UNKNOWN_ATTRIBUTE: Bad attribute name <UUU> while trying to define a field in record of type 10
 
         >>> r._76a = 'not an integer'
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Bad attribute name <_76a> while trying to define a field in record of type 10
+        nistitl.NistException: UNKNOWN_ATTRIBUTE: Bad attribute name <_76a> while trying to define a field in record of type 10
 
         It is possible to set the 999 tag with a bytes object:
 
@@ -918,7 +950,7 @@ class AsciiRecord(object):
                 return None
             except ValueError:
                 pass
-        raise NistException("Bad attribute name <%s> while trying to define a field in record of type %s" % (tag, self.type))
+        raise NistException("Bad attribute name <%s> while trying to define a field in record of type %s" % (tag, self.type), NistError.UNKNOWN_ATTRIBUTE)
 
     def __getattr__(self, tag):
         """
@@ -944,12 +976,12 @@ class AsciiRecord(object):
         >>> r.UUU       # unknown alias
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Unkown or bad attribute <UUU> while trying to retrieve a field in record of type 10
+        nistitl.NistException: UNKNOWN_ATTRIBUTE: Unkown or bad attribute <UUU> while trying to retrieve a field in record of type 10
 
         >>> r._76a      # not an integer
         Traceback (most recent call last):
         ...
-        nistitl.NistException: Unkown or bad attribute <_76a> while trying to retrieve a field in record of type 10
+        nistitl.NistException: UNKNOWN_ATTRIBUTE: Unkown or bad attribute <_76a> while trying to retrieve a field in record of type 10
 
         """
         for f in self._fields:
@@ -963,7 +995,7 @@ class AsciiRecord(object):
                         return f.value
             except ValueError:
                 pass
-        raise NistException("Unkown or bad attribute <%s> while trying to retrieve a field in record of type %s" % (tag, self.type))
+        raise NistException("Unkown or bad attribute <%s> while trying to retrieve a field in record of type %s" % (tag, self.type), NistError.UNKNOWN_ATTRIBUTE)
 
     #
     # Conversion and parsing
@@ -1161,11 +1193,11 @@ class Field(object):
     >>> f.value = [1, 2]
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Field 2.003: cannot have subfields
+    nistitl.NistException: BAD_FIELD_VALUE: Field 2.003: cannot have subfields
     >>> f.value = [[1, 2]]
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Field 2.003: cannot have subfields
+    nistitl.NistException: BAD_FIELD_VALUE: Field 2.003: cannot have subfields
 
     Or only a subfield:
 
@@ -1174,11 +1206,11 @@ class Field(object):
     >>> f.value = 'ok'
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Field 2.003: cannot have a value (only subfields and/or items)
+    nistitl.NistException: BAD_FIELD_VALUE: Field 2.003: cannot have a value (only subfields and/or items)
     >>> f.value = [[1, 2]]
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Subfield cannot have items
+    nistitl.NistException: BAD_SUBFIELD_VALUE: Subfield cannot have items
 
     Or only subfields with items:
 
@@ -1187,11 +1219,11 @@ class Field(object):
     >>> f.value = [1, 2]
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Subfield cannot have a value, only items
+    nistitl.NistException: BAD_SUBFIELD_VALUE: Subfield cannot have a value, only items
     >>> f.value = 'ok'
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Field 2.003: cannot have a value (only subfields and/or items)
+    nistitl.NistException: BAD_FIELD_VALUE: Field 2.003: cannot have a value (only subfields and/or items)
 
     Or subfields can be forbidden unless they have items:
 
@@ -1199,7 +1231,7 @@ class Field(object):
     >>> f.add_subfields( SubField('a', type="SI") )
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Subfield of 2.003: cannot have a value: 'a'
+    nistitl.NistException: BAD_SUBFIELD_VALUE: Subfield of 2.003: cannot have a value: 'a'
 
     Or a subfield with items can be forbidden:
 
@@ -1207,7 +1239,7 @@ class Field(object):
     >>> f.add_subfields( SubField(['a', 'b'], type="SI") )
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Subfield of 2.003: cannot have items
+    nistitl.NistException: BAD_SUBFIELD_VALUE: Subfield of 2.003: cannot have items
 
     """
     __slots__ = ['record', 'tag', 'type', 'format', 'alias', '_subfields', '_value']
@@ -1248,11 +1280,11 @@ class Field(object):
         self._subfields = []
         if not isinstance(val, (list, tuple)):
             if val and 'F' not in self.type:
-                raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have a value (only subfields and/or items)")
+                raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have a value (only subfields and/or items)", NistError.BAD_FIELD_VALUE)
             self._value = val
             return
         if 'S' not in self.type and 'I' not in self.type:
-            raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields")
+            raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields", NistError.BAD_FIELD_VALUE)
 
         for v in val:
             if not isinstance(v, (list, tuple)):
@@ -1286,13 +1318,13 @@ class Field(object):
         Add a set of subfields to this field. Some consistency checks are run.
         """
         if sf and not ('S' in self.type or 'I' in self.type):
-            raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields")
+            raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields", NistError.BAD_FIELD_VALUE)
         self._value = ''
         for x in sf:
             if x._value and 'S' not in self.type:
-                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have a value: "+repr(x.value))
+                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have a value: "+repr(x.value), NistError.BAD_SUBFIELD_VALUE)
             if x.values and 'I' not in self.type:
-                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have items")
+                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have items", NistError.BAD_SUBFIELD_VALUE)
             x.type = self.type
             self._subfields.append(x)
 
@@ -1378,7 +1410,7 @@ class SubField(object):
     >>> sf.value = 'error'
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Subfield cannot have a value, only items
+    nistitl.NistException: BAD_SUBFIELD_VALUE: Subfield cannot have a value, only items
 
     Or only a single value:
 
@@ -1387,7 +1419,7 @@ class SubField(object):
     >>> sf.value = ['a', 'b']
     Traceback (most recent call last):
     ...
-    nistitl.NistException: Subfield cannot have items
+    nistitl.NistException: BAD_SUBFIELD_VALUE: Subfield cannot have items
 
     Or both:
 
@@ -1424,7 +1456,7 @@ class SubField(object):
         self.values = []
         if not isinstance(val, (list, tuple)):
             if val and 'S' not in self.type:
-                raise NistException("Subfield cannot have a value, only items")
+                raise NistException("Subfield cannot have a value, only items", NistError.BAD_SUBFIELD_VALUE)
             self._value = val
             return
         self.add_values(*val)
@@ -1440,7 +1472,7 @@ class SubField(object):
         Add multiple values as items of this subfield.
         """
         if i and 'I' not in self.type:
-            raise NistException("Subfield cannot have items")
+            raise NistException("Subfield cannot have items", NistError.BAD_SUBFIELD_VALUE)
         for j in i:
             self.values.append(j)
 
