@@ -12,6 +12,8 @@ import io
 
 NIST_OK = b"1.001:1271.002:04001.003:1221221.004:TOTFORTEST1.005:200909181.007:0001.008:0001.009:123451.011:00.001.012:00.002.001:452.002:12.012:TEST12-SF1TEST12-SF22.001:302.002:22.012:TEST12"
 NIST_BAD_CNT = b"1.001:1231.002:04001.003:11211.004:TOTFORTEST1.005:200909181.007:0001.008:0001.009:123451.011:00.001.012:00.002.001:452.002:12.012:TEST12-SF1TEST12-SF22.001:302.002:22.012:TEST12"
+NIST_BAD_LEN_LONG = b"1.001:9991.002:05001.003:192001.004:TOTFORTEST1.005:202011191.006:21.007:AAA1.008:BBB1.009:TCN1.011:00.001.012:00.002.001:602.002:002.004:202011192.010:TESTOK2.011:123456789"
+NIST_BAD_LEN_SHORT = b"1.001:91.002:05001.003:192001.004:TOTFORTEST1.005:202011191.006:21.007:AAA1.008:BBB1.009:TCN1.011:00.001.012:00.002.001:602.002:002.004:202011192.010:TESTOK2.011:123456789"
 #NIST_SYNTAX_ERROR = b"1.001:1232"
 
 import os
@@ -116,6 +118,24 @@ class TestParseNist(unittest.TestCase):
     def testKO(self):
         msg = nistitl.Message()
         self.assertRaises(NistException,msg.parse,NIST_BAD_CNT)
+
+    def testBadLengthLong(self):
+        msg = nistitl.Message()
+        try:
+            msg.parse(NIST_BAD_LEN_LONG)
+        except NistException as exc:
+            self.assertEqual(exc.error, nistitl.NistError.NIST_TOO_SHORT)
+        self.assertEqual(msg.TOT,"TOTFORTEST")
+        self.assertEqual(msg[0].TCN,"TCN")
+
+    def testBadLengthShort(self):
+        msg = nistitl.Message()
+        try:
+            msg.parse(NIST_BAD_LEN_SHORT)
+        except NistException as exc:
+            self.assertEqual(exc.error, nistitl.NistError.NIST_TOO_LONG)
+        self.assertEqual(msg.TOT,"TOTFORTEST")
+        self.assertEqual(msg[0].TCN,"TCN")
 
 #_______________________________________________________________________________
 class TestTaggedBinary(unittest.TestCase):

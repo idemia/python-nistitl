@@ -656,6 +656,8 @@ class Message(object):
                 record = int(mo.group('record'))
                 length = int(mo.group('value'))
 
+                future_exc = None
+
                 # Get tag for DATA field
                 tag_for_data = None
                 for K, V in ALIASES[record].items():
@@ -665,7 +667,20 @@ class Message(object):
 
                 # Check we have enough space left to fetch length bytes
                 if not offset+length<=len(buffer):
-                    raise NistException("NIST buffer too short (missing bytes) when parsing record %s" % record, NistError.NIST_TOO_SHORT)
+                    # Try to parse what we have
+                    length = len(buffer)-offset
+                    future_exc = NistException("NIST buffer too short (missing bytes) when parsing record %s" % record, NistError.NIST_TOO_SHORT)
+                else:
+                    # Check we have everything we can have, i.e. either a FS or the data tag
+                    if tag_for_data:
+                        pos_data = buffer.find(str(tag_for_data).encode('latin-1')+b':', offset)
+                    else:
+                        pos_data = -1
+                    pos_fs = buffer.find(FS, offset)
+                    new_length = min([x for x in [pos_fs, pos_data] if x >=0]) - offset
+                    if new_length>length:
+                        future_exc = NistException("NIST buffer too long (extra bytes)", NistError.NIST_TOO_LONG)
+                        length = new_length
 
                 # We can now extract the buffer for this record
                 record_buffer = buffer[offset:offset+length]
@@ -682,7 +697,7 @@ class Message(object):
                     # ascii record with binary data (type 10 for instance)
                     # parse only the beginning of the record
 
-                    # check we still are pointing to a valid binary tag name
+                    # check we still are pointing to a valid tag name
                     if not RE_TAG_BEGIN.match(record_buffer[pos_end+1:pos+4].decode('latin-1')):
                         raise NistException("Illegal format for tag %s (%s)" % (tag_for_data, record_buffer[pos_end+1:pos+4].decode('latin-1')), NistError.BAD_TAG_FORMAT)
 
@@ -691,11 +706,18 @@ class Message(object):
                     nr = self._factory(record, False, True)
                     self += nr
                     p = _Parser(nr)
-                    parse_record(text_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
+                    try:
+                        parse_record(text_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
+                    except NistException as exc:
+                        if future_exc:
+                            raise future_exc
+                        raise
                     if not p.closed:
+                        if future_exc:
+                            raise future_exc
                         raise NistException("Record type %d not terminated"%record, NistError.RECORD_NOT_TERMINATED)
 
-                    # Add the binary part
+                    # Add the binary part (might be incomplete if length was wrong)
                     f = BinaryField(record, tag_for_data)
                     f.value = record_buffer[pos+4:-1]
                     nr += f
@@ -704,16 +726,32 @@ class Message(object):
                     # parse the record
                     if record == 1:
                         p = _Parser(self._records[0])
-                        parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
+                        try:
+                            parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
+                        except NistException as exc:
+                            if future_exc:
+                                raise future_exc
+                            raise
                         if not p.closed:
+                            if future_exc:
+                                raise future_exc
                             raise NistException("Record type %d not terminated"%record, NistError.RECORD_NOT_TERMINATED)
                     else:
                         nr = self._factory(record, False, True)
                         self += nr
                         p = _Parser(nr)
-                        parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
+                        try:
+                            parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
+                        except NistException as exc:
+                            if future_exc:
+                                raise future_exc
+                            raise
                         if not p.closed:
+                            if future_exc:
+                                raise future_exc
                             raise NistException("Record type %d not terminated"%record, NistError.RECORD_NOT_TERMINATED)
+                if future_exc:
+                    raise future_exc
             else:
                 # Extract length from the four first bytes
                 length, idc = struct.unpack("!LB", buffer[offset:offset+5])
