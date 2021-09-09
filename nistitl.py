@@ -710,7 +710,7 @@ class Message(object):
                         parse_record(text_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
                     except NistException as exc:
                         if future_exc:
-                            raise future_exc
+                            raise future_exc from exc
                         raise
                     if not p.closed:
                         if future_exc:
@@ -730,7 +730,7 @@ class Message(object):
                             parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
                         except NistException as exc:
                             if future_exc:
-                                raise future_exc
+                                raise future_exc from exc
                             raise
                         if not p.closed:
                             if future_exc:
@@ -744,7 +744,7 @@ class Message(object):
                             parse_record(record_buffer, p.push_record, p.push_field, p.push_subfield, p.push_value)
                         except NistException as exc:
                             if future_exc:
-                                raise future_exc
+                                raise future_exc from exc
                             raise
                         if not p.closed:
                             if future_exc:
@@ -782,15 +782,15 @@ class Message(object):
         # Check CNT fields (does it match content found during parsing ?)
         i = 0
         CNT = self._records[0]['CNT']
-        if len(CNT._subfields) != len(self._records):
+        if len(CNT) != len(self._records):
             raise NistException("Bad CNT tag in record 1 (different number of records)", NistError.BAD_CONTENT)
-        for i in range(len(CNT._subfields)):
-            if len(CNT._subfields[i].values) != 2:
+        for i in range(len(CNT)):
+            if len(CNT.value[i]) != 2:
                 raise NistException("Bad CNT tag in record 1 (bad number of values for subfield #%d)" % i, NistError.BAD_CONTENT)
             if i == 0:
-                if int(CNT._subfields[i].values[0]) != self._records[i].type:
+                if int(CNT.value[i][0]) != self._records[i].type:
                     raise NistException("Bad CNT tag in record 1 (bad record type for subfield #%d)" % i, NistError.BAD_CONTENT)
-            elif int(CNT._subfields[i].values[0]) != self._records[i].type and int(CNT._subfields[i].values[1]) != int(self._records[i].IDC):
+            elif int(CNT.value[i][0]) != self._records[i].type and int(CNT.value[i][1]) != int(self._records[i].IDC):
                 raise NistException("Bad CNT tag in record 1 (bad record type or bad IDC for subfield #%d)" % i, NistError.BAD_CONTENT)
 
 
@@ -1423,10 +1423,12 @@ class Field(object):
             raise NistException("Field "+self.format% (self.record, self.tag)+" cannot have subfields", NistError.BAD_FIELD_VALUE)
         self._value = ''
         for x in sf:
-            if x._value and 'S' not in self.type:
-                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have a value: "+repr(x.value), NistError.BAD_SUBFIELD_VALUE)
-            if x.values and 'I' not in self.type:
-                raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have items", NistError.BAD_SUBFIELD_VALUE)
+            if isinstance(x.value, (list, tuple)):
+                if 'I' not in self.type:
+                    raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have items", NistError.BAD_SUBFIELD_VALUE)
+            else:
+                if 'S' not in self.type:
+                    raise NistException("Subfield of "+self.format% (self.record, self.tag)+" cannot have a value: "+repr(x.value), NistError.BAD_SUBFIELD_VALUE)
             x.type = self.type
             self._subfields.append(x)
 
