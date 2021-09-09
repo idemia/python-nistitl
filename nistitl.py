@@ -1407,7 +1407,7 @@ class Field(object):
         """
         Access the *idx*-th sub field in the field.
 
-        >>> f= Field(2, 3, ['one', 'two'])
+        >>> f = Field(2, 3, ['one', 'two'])
         >>> print(f[0].value)
         one
         >>> print(f[1].value)
