@@ -1390,6 +1390,19 @@ class Field(object):
 
     """
 
+    def __len__(self):
+        """
+        Return the number of subfields in the field.
+
+        >>> f = Field(2, 3, ['one', 'two'])
+        >>> print(len(f))
+        2
+        >>> f = Field(2, 21, "hello")
+        >>> print(len(f))
+        0
+        """
+        return len(self._subfields)
+
     def __getitem__(self, idx):
         """
         Access the *idx*-th sub field in the field.
@@ -1577,6 +1590,16 @@ class SubField(object):
         'b'
         """
         return self.values[idx]
+
+    def __len__(self):
+        """
+        Return the number of items in the subfield.
+
+        >>> f = SubField(type="I", ['one', 'two'])
+        >>> print(len(f))
+        2
+        """
+        return len(self.values)
 
     @property
     def NIST(self):
