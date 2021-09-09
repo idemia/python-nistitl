@@ -1595,7 +1595,7 @@ class SubField(object):
         """
         Return the number of items in the subfield.
 
-        >>> f = SubField(type="I", ['one', 'two'])
+        >>> f = SubField(type="I", value=['one', 'two'])
         >>> print(len(f))
         2
         """
