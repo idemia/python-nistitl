@@ -74,7 +74,13 @@ Build a NIST
     msg += r4
     r4.IDC = 2
     # Set all fields in one step, image and headers
-    r4.pack("!HH", 500, 500, b'image')
+    r4.pack("!BBBBBBBBHHB",             # format for ANSI/NIST-ITL 1-2011: UPDATE 2015
+        1,                              # impression type (rolled contact)
+        1, 255, 255, 255, 255, 255,     # finger position (right thumb)
+        0,                              # image scanning resolution (500 ppi)
+        500, 500,                       # width & height
+        1,                              # compression algo (WSQ)
+        b'image')                       # the image buffer
 
     # --- Add a type 10 record
     r10 = nistitl.AsciiRecord(10)
@@ -103,7 +109,14 @@ Parse a NIST
     # --- Loop on all records of type 4
     for r4 in msg.iter(4):
         # Get all fields
-        width, height, data = r4.unpack("!HH")
+        all_fields = r4.unpack("!BBBBBBBBHHB")
+        imp = all_fields[0]
+        fgp = list(all_fields[1:7])
+        isr = all_fields[7]
+        width = all_fields[8]
+        height = all_fields[9]
+        gca = all_fields[10]
+        image = all_fields[11]
 
     # --- Loop on all records of type 10
     for r10 in msg.iter(10):
