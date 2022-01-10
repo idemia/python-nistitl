@@ -261,6 +261,23 @@ class TestBug(unittest.TestCase):
         msg = nistitl.Message()
         msg.parse(N)
         
+    def test_multiline(self):
+        msg = nistitl.Message()
+        record_2 = nistitl.AsciiRecord(2)
+        msg += record_2
+        record_2._011 = "word1\tword2"
+        record_2._012 = "line1\nline2"
+
+        # Generate binary buffer containing NIST data
+        buffer = msg.NIST
+
+        # Parse generated NIST buffer into msg2
+        msg2 = nistitl.Message()
+        msg2.parse(buffer)
+        for rec in msg2.iter(2):
+            self.assertEquals("word1\tword2", rec._11)
+            self.assertEquals("line1\nline2", rec._12)
+
 
 # ______________________________________________________________________________
 if __name__=='__main__':

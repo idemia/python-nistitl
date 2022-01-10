@@ -115,7 +115,7 @@ __license__ = "CeCILL-C"
 
 RE_TAG_LEN = re.compile(b'(?P<record>\\d+)\\.(?P<tag>\\d+)\\:(?P<value>\\d+)')
 RE_TAG_BEGIN = re.compile(r'(?P<record>\d+)\.(?P<tag>\d+)\:')
-RE_TAG_CONTENT = re.compile(b'(?P<tag>\\d+\\.\\d+\\:)(?P<content>.*)')
+RE_TAG_CONTENT = re.compile(b'(?P<tag>\\d+\\.\\d+\\:)(?P<content>.*)', re.DOTALL)
 
 # NIST Separators
 FS = b'\x1c'
