@@ -275,8 +275,8 @@ class TestBug(unittest.TestCase):
         msg2 = nistitl.Message()
         msg2.parse(buffer)
         for rec in msg2.iter(2):
-            self.assertEquals("word1\tword2", rec._11)
-            self.assertEquals("line1\nline2", rec._12)
+            self.assertEqual("word1\tword2", rec._11)
+            self.assertEqual("line1\nline2", rec._12)
 
 
 # ______________________________________________________________________________
