@@ -1,3 +1,4 @@
 [run]
 source=nistitl
 omit = tests/*
+    docs/*
