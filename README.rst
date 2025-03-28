@@ -18,10 +18,6 @@ nistitl
     :target: https://pypi.org/project/nistitl/
     :alt: v?.?
 
-.. image:: https://travis-ci.com/idemia/python-nistitl.svg?branch=master
-    :target: https://travis-ci.com/github/idemia/python-nistitl
-    :alt: Build Status (Travis CI)
-
 .. image:: https://codecov.io/gh/idemia/python-nistitl/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/idemia/python-nistitl
     :alt: Code Coverage Status (Codecov)
