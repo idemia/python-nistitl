@@ -666,7 +666,7 @@ class Message(object):
                         break
 
                 # Check we have enough space left to fetch length bytes
-                if not offset+length<=len(buffer):
+                if offset+length > len(buffer):
                     # Try to parse what we have
                     length = len(buffer)-offset
                     future_exc = NistException("NIST buffer too short (missing bytes) when parsing record %s" % record, NistError.NIST_TOO_SHORT)
@@ -765,7 +765,7 @@ class Message(object):
                     raise NistException("Could not recognize binary record, bad content or bad record", NistError.BAD_CONTENT) from exc
 
                 # Check we have enough space left to fetch length bytes
-                if not offset+length<=len(buffer):
+                if offset+length > len(buffer):
                     raise NistException("NIST buffer too short (missing bytes) when parsing record %s" % record, NistError.NIST_TOO_SHORT)
 
                 nr = self._factory(record_type, True, True)
