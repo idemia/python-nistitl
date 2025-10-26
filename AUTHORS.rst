@@ -4,5 +4,5 @@
 Contributors
 ------------
 
-- Oivier Heurtier <olivier.heurtier@idemia.com> `@olivier-heurtier-idemia <https://github.com/olivier-heurtier-idemia>`_
+- Oivier Heurtier <olivier.heurtier@free.fr> `@olivier-heurtier-idemia <https://github.com/olivier-heurtier-idemia>`_
 
